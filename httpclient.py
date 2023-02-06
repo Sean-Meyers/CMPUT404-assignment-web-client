@@ -18,8 +18,6 @@
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
 
-# Testing Something.
-
 import sys
 import socket
 import re
