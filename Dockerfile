@@ -1,5 +1,5 @@
 # this docker file describes the test environment for the assignment
-FROM ubuntu:18.10
+FROM ubuntu:20.04
 RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y python3 python3-dev python3-setuptools python3-pip curl wget git vim 
