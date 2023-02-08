@@ -24,36 +24,82 @@ import re
 # you may use urllib to encode data appropriately
 import urllib.parse as parse
 
+
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
+
 
 class HTTPResponse(object):
     def __init__(self, code=200, body=""):
         self.code = code
         self.body = body
 
+
+
+class ExtractedData(object):
+    def __init__(self, unparsed_data: str, compiled_re: re.Pattern):
+        super().__init__()
+        match = compiled_re.match(unparsed_data)
+        self.data = match.groupdict() if match else {}
+
+
+    def __getattr__(self, __name: str):
+        attr = self.data.get(__name)
+        if attr:
+            return attr
+        else:
+            raise AttributeError(f"type object 'ExtractedData' has no attribute '{__name}'")
+        
+        
+    def __str__(self):
+        return self.data.__str__()
+            
+
+
 class HTTPClient(object):
-    #def get_host_port(self,url):
+    #def get_host_port(self,url):  
+    def __init__(self) -> None:
+        super().__init__(self)
+        # Set the response parsing regular expression. ... Punny I know.
+        self.REsp = re.compile('HTTP/(?P<http_ver>\d.\d) (?P<code>\d{3}) (?P<reason>[^\r\n]*)((\r\n)|\n)(?P<headers>([^\r\n]*((\r\n)|\n))*((\r\n)|\n))(?P<body>[^\r\n]*((\r\n)|\n){0,1})*')
+        self.last_response = None
+
 
     def connect(self, host, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
+
         return None
+
 
     def get_code(self, data):
-        return None
+        if not self.last_response:
+            self.last_response = ExtractedData(data, self.REsp)
+
+        return self.last_response.code
+
 
     def get_headers(self,data):
-        return None
+        if not self.last_response:
+            self.last_response = ExtractedData(data, self.REsp)
+
+        return self.last_response.headers
+
 
     def get_body(self, data):
-        return None
+        if not self.last_response:
+            self.last_response = ExtractedData(data, self.REsp)
+        
+        return self.last_response.body
     
+
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
-        
+
+
     def close(self):
         self.socket.close()
+
 
     # read everything from the socket
     def recvall(self, sock):
@@ -65,7 +111,9 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
+  
         return buffer.decode('utf-8')
+
 
     def GET(self, url, args=None):
         parse_result = parse.urlparse(url)
@@ -73,16 +121,17 @@ class HTTPClient(object):
         with self.socket:
             self.sendall(f'HTTP/1.1 GET {parse_result.path}\r\n\r\n')
             response = self.recvall(self.socket)
-        # responseRE = re.compile
+        self.last_response = ExtractedData(response, self.REsp)
 
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+        return HTTPResponse(self.last_response.code, self.last_response.body)
+
 
     def POST(self, url, args=None):
         code = 500
         body = ""
+  
         return HTTPResponse(code, body)
+
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
@@ -90,6 +139,7 @@ class HTTPClient(object):
         else:
             return self.GET( url, args )
     
+
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
