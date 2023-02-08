@@ -48,9 +48,9 @@ class ExtractedData(object):
         if attr:
             return attr
         else:
-            raise AttributeError(f"type object 'ExtractedData' has no attribute '{__name}'")
+            raise AttributeError(f"type object 'ExtractedData' has no attribute '{__name}'.  Available attributes: {self.__str__()}")
         
-        
+
     def __str__(self):
         return self.data.__str__()
             
@@ -59,7 +59,7 @@ class ExtractedData(object):
 class HTTPClient(object):
     #def get_host_port(self,url):  
     def __init__(self) -> None:
-        super().__init__(self)
+        super().__init__()
         # Set the response parsing regular expression. ... Punny I know.
         self.REsp = re.compile('HTTP/(?P<http_ver>\d.\d) (?P<code>\d{3}) (?P<reason>[^\r\n]*)((\r\n)|\n)(?P<headers>([^\r\n]*((\r\n)|\n))*((\r\n)|\n))(?P<body>[^\r\n]*((\r\n)|\n){0,1})*')
         self.last_response = None
