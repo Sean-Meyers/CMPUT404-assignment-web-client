@@ -41,6 +41,7 @@ class ExtractedData(object):
         super().__init__()
         match = compiled_re.match(unparsed_data)
         self.data = match.groupdict() if match else {}
+        self.unparsed = unparsed_data
 
 
     def __getattr__(self, __name: str):
@@ -48,20 +49,25 @@ class ExtractedData(object):
         if attr:
             return attr
         else:
-            raise AttributeError(f"type object 'ExtractedData' has no attribute '{__name}'.  Available attributes: {self.__str__()}")
+            raise AttributeError(f"type object 'ExtractedData' has no attribute '{__name}'.  Available attributes: {self.__str__()}, extracted from {self.unparsed}")
         
 
     def __str__(self):
         return self.data.__str__()
             
 
-
 class HTTPClient(object):
     #def get_host_port(self,url):  
     def __init__(self) -> None:
         super().__init__()
         # Set the response parsing regular expression. ... Punny I know.
-        self.REsp = re.compile('HTTP/(?P<http_ver>\d.\d) (?P<code>\d{3}) (?P<reason>[^\r\n]*)((\r\n)|\n)(?P<headers>([^\r\n]*((\r\n)|\n))*((\r\n)|\n))(?P<body>[^\r\n]*((\r\n)|\n){0,1})*')
+        self.REsp = re.compile(
+            """
+            HTTP/(?P<http_ver>\d.\d)[ ](?P<code>\d{3})[ ](?P<reason>[^\r\n]*)(([\r][\n])|[\n])    # Status line
+            (?P<headers>([^\r\n]+(([\r][\n])|[\n]){1})*)                                          # Headers
+            (([\r][\n])|[\n])
+            (?P<body>([^\r\n]*(([\r][\n])|[\n]){0,1})*)                                           # Message Body
+            """, re.VERBOSE)
         self.last_response = None
 
 
@@ -119,11 +125,11 @@ class HTTPClient(object):
         parse_result = parse.urlparse(url)
         self.connect(parse_result.hostname, parse_result.port)
         with self.socket:
-            self.sendall(f'HTTP/1.1 GET {parse_result.path}\r\n\r\n')
+            self.sendall(f'GET {parse_result.path} HTTP/1.1\r\nHost: parse_result.hostname\r\n\r\n')
             response = self.recvall(self.socket)
         self.last_response = ExtractedData(response, self.REsp)
 
-        return HTTPResponse(self.last_response.code, self.last_response.body)
+        return HTTPResponse(int(self.last_response.code), self.last_response.body)
 
 
     def POST(self, url, args=None):
