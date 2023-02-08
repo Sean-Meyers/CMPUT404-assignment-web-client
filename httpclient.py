@@ -129,14 +129,24 @@ class HTTPClient(object):
             response = self.recvall(self.socket)
         self.last_response = ExtractedData(response, self.REsp)
 
-        return HTTPResponse(int(self.last_response.code), self.last_response.body)
+        try:
+            body = self.last_response.body
+        except AttributeError:
+            body = ''
+
+        return HTTPResponse(int(self.last_response.code), body)
 
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
-  
-        return HTTPResponse(code, body)
+        parse_result = parse.urlparse(url)
+        self.connect(parse_result.hostname, parse_result.port)
+        with self.socket:
+            args = (parse.urlencode(args) + "\r\n") if args else ""
+            self.sendall(f'POST {parse_result.path} HTTP/1.1\r\nHost: parse_result.hostname\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n{args}')
+            response = self.recvall(self.socket)
+        self.last_response = ExtractedData(response, self.REsp)
+
+        return HTTPResponse(int(self.last_response.code), self.last_response.body)
 
 
     def command(self, url, command="GET", args=None):
