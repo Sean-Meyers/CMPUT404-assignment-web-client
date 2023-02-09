@@ -69,6 +69,7 @@ class HTTPClient(object):
             (?P<body>([^\r\n]*(([\r][\n])|[\n]){0,1})*)                                           # Message Body
             """, re.VERBOSE)
         self.last_response = None
+        self.req = '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
 
 
     def connect(self, host, port):
@@ -125,7 +126,11 @@ class HTTPClient(object):
         parse_result = parse.urlparse(url)
         self.connect(parse_result.hostname, parse_result.port)
         with self.socket:
-            self.sendall(f'GET {parse_result.path} HTTP/1.1\r\nHost: parse_result.hostname\r\n\r\n')
+            # self.req format: '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
+            self.sendall(self.req.format(method='GET',
+                                         path=parse_result.path,
+                                         headers=f'Host: {parse_result.hostname}',
+                                         body=''))
             response = self.recvall(self.socket)
         self.last_response = ExtractedData(response, self.REsp)
 
@@ -141,8 +146,18 @@ class HTTPClient(object):
         parse_result = parse.urlparse(url)
         self.connect(parse_result.hostname, parse_result.port)
         with self.socket:
-            args = (parse.urlencode(args) + "\r\n") if args else ""
-            self.sendall(f'POST {parse_result.path} HTTP/1.1\r\nHost: parse_result.hostname\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n{args}')
+            headers = f'Host: {parse_result.hostname}'
+            if args:
+                args = parse.urlencode(args) #( + "\r\n") if args else ""
+                content_length = len(args)
+                headers += f'\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {content_length}\r\n'
+            else:
+                args = ''
+            # self.req format: '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
+            self.sendall(self.req.format(method='POST',
+                                         path=parse_result.path,
+                                         headers=headers,
+                                         body=args))
             response = self.recvall(self.socket)
         self.last_response = ExtractedData(response, self.REsp)
 
