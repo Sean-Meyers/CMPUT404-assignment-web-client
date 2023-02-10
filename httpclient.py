@@ -113,11 +113,24 @@ class HTTPClient(object):
         buffer = bytearray()
         done = False
         while not done:
-            # headers_end = buffer.find(b'\r\n\r\n')
-            # if headers_end > 0:
-            #     # if buffer.find(b'Content-Length: ')
+            headers_end = buffer.find(b'\r\n\r\n')
+            if headers_end > 0:
+                c_len_header_start = buffer.find(b'Content-Length: ')
+                if c_len_header_start > 0:
+                    c_len_start = c_len_header_start + 16
+                    digit = buffer[c_len_start : 1+c_len_start]
+                    c_len = bytearray()
+                    i = 1
+                    while digit not in b'\r\n':
+                        c_len.extend(digit)
+                        digit = buffer[c_len_start+i : 1+c_len_start+i]
+                        i += 1
+                    header_size = headers_end + 4
+                    if len(buffer) >= header_size + int(c_len.decode('utf-8')):
+                        done = True
+                        break
             part = sock.recv(1024)
-            # print(part)
+            print(part)
             if (part):
                 buffer.extend(part)
             else:
