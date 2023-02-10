@@ -37,12 +37,38 @@ class HTTPResponse(object):
 
 
 class ExtractedData(object):
+    """
+    Represents data extracted from a string.
+    
+    The data can be retrieved from this
+    with .notation.
+    E.g. extracted_data = ExtractedData('...some data...', reg_ex)
+    print(extracted_data.re_group_name)
+
+    Make sure to import re first.
+    """
+
     def __init__(self, unparsed_data: str, compiled_re: re.Pattern):
+        """
+        Args:
+            unparsed_data (str):
+                The data to be extracted and loaded into this instance.
+
+            compiled_re (re.Pattern):
+                A compiled regular expression that will match substrings in the
+                data to named RE groups. After instantiation, you can use these
+                named groups as if they are attributes of your instance!
+
+        See Also:
+            RE group names:
+                https://docs.python.org/3.8/library/re.html?highlight=scanf#regular-expression-syntax:~:text=in%20a%20group.-,(%3FP%3Cname%3E...),-Similar%20to%20regular
+            RE Group Dict:
+                https://docs.python.org/3.8/library/re.html?highlight=scanf#regular-expression-syntax:~:text=in%20a%20group.-,(%3FP%3Cname%3E...),-Similar%20to%20regular
+        """
         super().__init__()
         match = compiled_re.match(unparsed_data)
         self.data = match.groupdict() if match else {}
         self.unparsed = unparsed_data
-
 
     def __getattr__(self, __name: str):
         attr = self.data.get(__name)
@@ -54,12 +80,31 @@ class ExtractedData(object):
                                         __name}'.  Available attributes: {
                              self.__str__()}, extracted from {self.unparsed}""")
         
-
     def __str__(self):
         return self.data.__str__()
             
 
 class HTTPClient(object): 
+    """
+    A client for getting and posting to web servers and stuff.
+
+    Instance Attributes:
+        self.REsp (re.Pattern):
+            For parsing the various fields of an HTTP response.
+
+        self.last_response (ExtractedData):
+            The last response in convenient ExtractedData form, try
+            last_response.code or something... see, convenient. This mainly
+            exists in case you want to reuse some info for a short period.
+
+        self.req (str):
+            Format string template for constructing HTTP requests.
+
+        self.socket (socket.socket):
+            The socket initialized in self.connect(...), make sure you do "with
+            self.socket:" after calling connect(...).
+    """
+
     def __init__(self) -> None:
         super().__init__()
         # Set the response parsing regular expression. ... Punny I know.
@@ -75,13 +120,31 @@ class HTTPClient(object):
 
 
     def connect(self, host, port):
+        """
+        Connect to the given host and port.
+
+        Args:
+            host (str):
+                The host to connect to.
+
+            port (int):
+                The port to connect to. Does not accept strings like 'http',
+                must be a number (e.g. 80 for http).
+        """
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
 
-        return None
-
 
     def get_code(self, data):
+        """
+        Get the http code from the response in data.
+
+        Args:
+            data (str): The HTTP response
+
+        Returns:
+            str: String representation of the code. Make sure to call int()!
+        """
         if not self.last_response:
             self.last_response = ExtractedData(data, self.REsp)
 
@@ -89,6 +152,15 @@ class HTTPClient(object):
 
 
     def get_headers(self,data):
+        """
+        Get the http headers from the response in data.
+
+        Args:
+            data (str): The HTTP response
+
+        Returns:
+            str: Headers in the http response.
+        """
         if not self.last_response:
             self.last_response = ExtractedData(data, self.REsp)
 
@@ -96,6 +168,15 @@ class HTTPClient(object):
 
 
     def get_body(self, data):
+        """
+        Get the http body from the response in data.
+
+        Args:
+            data (str): The HTTP response
+
+        Returns:
+            str: Body of the http response. The thing after the double CRLF.
+        """
         if not self.last_response:
             self.last_response = ExtractedData(data, self.REsp)
         
@@ -110,11 +191,26 @@ class HTTPClient(object):
         self.socket.close()
 
 
-    # read everything from the socket
     def recvall(self, sock):
+        """
+        Read everything from the socket.
+
+        Now with new and improved hanging connection eliminator.
+
+        Args:
+            sock (socket.socket): The socket to receive data from.
+
+        Returns:
+            str: Decoded http response.
+        """
         buffer = bytearray()
         done = False
         while not done:
+            # ----------------------
+            # Find the end of the headers so we can check for content length of
+            # the body, then start counting from the beginning of the http body
+            # until we've hit that number. At that point, break from the loop
+            # so we don't get rekked by a hanging recv().
             headers_end = buffer.find(b'\r\n\r\n')
             if headers_end > 0:
                 c_len_header_start = buffer.find(b'Content-Length: ')
@@ -131,6 +227,7 @@ class HTTPClient(object):
                     if len(buffer) >= header_size + int(c_len.decode('utf-8')):
                         done = True
                         break
+            # ---------------------------
             part = sock.recv(1024)
             if (part):
                 buffer.extend(part)
@@ -142,6 +239,20 @@ class HTTPClient(object):
     
     @classmethod
     def gimme_port(cls, parse_result: parse.ParseResult):
+        """
+        ...or else I'll open a can of whoop-exception on you.
+        
+        urllib.parse.ParseResult won't automatically infer the port from the
+        scheme if none is provided explicitely, so we have to use this to do
+        that.
+
+        Raises an exception if scheme is not http or https.
+
+        See Also:
+            https://docs.python.org/3.8/library/urllib.parse.html#urllib.parse.urlparse
+
+        Return the integer port number.
+        """
         if parse_result.port:
             return parse_result.port
         elif parse_result.scheme == 'http':
