@@ -113,18 +113,35 @@ class HTTPClient(object):
         buffer = bytearray()
         done = False
         while not done:
+            # headers_end = buffer.find(b'\r\n\r\n')
+            # if headers_end > 0:
+            #     # if buffer.find(b'Content-Length: ')
             part = sock.recv(1024)
+            # print(part)
             if (part):
                 buffer.extend(part)
             else:
                 done = not part
   
         return buffer.decode('utf-8')
+    
+    
+    @classmethod
+    def gimme_port(cls, parse_result: parse.ParseResult):
+        if parse_result.port:
+            return parse_result.port
+        elif parse_result.scheme == 'http':
+            return 80
+        elif parse_result.scheme == 'https':
+            return 443
+        else:
+            raise Exception("Can't infer port. Provided scheme " +
+                                             "isn't http or url is incomplete.")
 
 
     def GET(self, url, args=None):
         parse_result = parse.urlparse(url)
-        self.connect(parse_result.hostname, parse_result.port)
+        self.connect(parse_result.hostname, self.gimme_port(parse_result))
         with self.socket:
             # self.req format: '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
             self.sendall(self.req.format(method='GET',
@@ -144,15 +161,20 @@ class HTTPClient(object):
 
     def POST(self, url, args=None):
         parse_result = parse.urlparse(url)
-        self.connect(parse_result.hostname, parse_result.port)
+        self.connect(parse_result.hostname, self.gimme_port(parse_result))
         with self.socket:
-            headers = f'Host: {parse_result.hostname}'
+            headers = 'Host: {host}\r\nContent-Length: {content_length}'
             if args:
-                args = parse.urlencode(args) #( + "\r\n") if args else ""
+                args = parse.urlencode(args)
                 content_length = len(args)
-                headers += f'\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {content_length}\r\n'
+                headers = (headers + 
+                    '\r\nContent-Type: application/x-www-form-urlencoded\r\n'
+                                ).format(host=parse_result.hostname,
+                                                  content_length=content_length)
             else:
                 args = ''
+                headers = headers.format(host=parse_result.hostname,
+                                                               content_length=0)
             # self.req format: '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
             self.sendall(self.req.format(method='POST',
                                          path=parse_result.path,
