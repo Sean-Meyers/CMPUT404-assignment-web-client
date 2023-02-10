@@ -49,15 +49,17 @@ class ExtractedData(object):
         if attr:
             return attr
         else:
-            raise AttributeError(f"type object 'ExtractedData' has no attribute '{__name}'.  Available attributes: {self.__str__()}, extracted from {self.unparsed}")
+            raise AttributeError(
+                f"""type object 'ExtractedData' has no attribute '{
+                                        __name}'.  Available attributes: {
+                             self.__str__()}, extracted from {self.unparsed}""")
         
 
     def __str__(self):
         return self.data.__str__()
             
 
-class HTTPClient(object):
-    #def get_host_port(self,url):  
+class HTTPClient(object): 
     def __init__(self) -> None:
         super().__init__()
         # Set the response parsing regular expression. ... Punny I know.
@@ -130,7 +132,6 @@ class HTTPClient(object):
                         done = True
                         break
             part = sock.recv(1024)
-            print(part)
             if (part):
                 buffer.extend(part)
             else:
@@ -163,6 +164,7 @@ class HTTPClient(object):
                                          headers=f'Host: {parse_result.hostname}',
                                          body=''))
             response = self.recvall(self.socket)
+            print(response)
         self.last_response = ExtractedData(response, self.REsp)
 
         try:
@@ -196,6 +198,7 @@ class HTTPClient(object):
                                          headers=headers,
                                          body=args))
             response = self.recvall(self.socket)
+            print(response)
         self.last_response = ExtractedData(response, self.REsp)
 
         return HTTPResponse(int(self.last_response.code), self.last_response.body)
