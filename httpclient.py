@@ -158,7 +158,8 @@ class HTTPClient(object):
         with self.socket:
             # self.req format: '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
             self.sendall(self.req.format(method='GET',
-                                         path=parse_result.path,
+                                         path=(parse_result.path if 
+                                                    parse_result.path else '/'),
                                          headers=f'Host: {parse_result.hostname}',
                                          body=''))
             response = self.recvall(self.socket)
@@ -190,7 +191,8 @@ class HTTPClient(object):
                                                                content_length=0)
             # self.req format: '{method} {path} HTTP/1.1\r\n{headers}\r\n{body}\r\n'
             self.sendall(self.req.format(method='POST',
-                                         path=parse_result.path,
+                                         path=(parse_result.path if
+                                                    parse_result.path else '/'),
                                          headers=headers,
                                          body=args))
             response = self.recvall(self.socket)
